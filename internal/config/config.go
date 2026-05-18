@@ -1,37 +1,34 @@
-// Package config loads and holds all application configuration
-// from environment variables and .env file.
+/**
+ * Package config loads and holds all application configuration
+ * from environment variables and .env file.
+ */
 package config
 
 import (
 	"errors"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Default values (overridable via environment).
+/** Default values (overridable via environment). */
 const (
-	DefaultPort                  = "4557"
-	DefaultPoolSize              = 2
-	DefaultTabsPerBrowser        = 2
-	DefaultGCRALimit             = 10
-	DefaultBrowserMaxAge         = 30 * time.Minute
-	DefaultBrowserMaxSolve       = int64(50)
-	DefaultSolveTimeout          = 60 * time.Second
-	DefaultGCRAPeriod            = 3 * time.Second
-	DefaultGCRARetryAfter        = 2 * time.Second
-	XvfbDisplayBase              = 99
-	XvfbDisplayAttempts          = 64
-	WsWriteTimeout               = 5 * time.Second
-	WsReadTimeout                = 60 * time.Second
-	WsPingInterval               = 25 * time.Second
-	WsReadLimit            int64 = 1024
-	PausedEventBuffer            = 128
+	DefaultPort              = "4557"
+	DefaultPoolSize          = 1
+	DefaultTabsPerBrowser    = 1
+	DefaultGCRALimit         = 10
+	DefaultBrowserMaxAge     = 30 * time.Minute
+	DefaultBrowserMaxSolve   = int64(50)
+	DefaultSolveTimeout      = 60 * time.Second
+	DefaultGCRAPeriod        = 3 * time.Second
+	DefaultGCRARetryAfter    = 2 * time.Second
+	XvfbDisplayBase          = 99
+	XvfbDisplayAttempts      = 64
+	PausedEventBuffer        = 128
 )
 
-// Config holds all runtime configuration.
+/** Config holds all runtime configuration. */
 type Config struct {
 	Port              string
 	PoolSize          int
@@ -49,7 +46,7 @@ type Config struct {
 	ReadHeaderTimeout time.Duration
 }
 
-// Load reads configuration from environment and computes dynamic values.
+/** Load reads configuration from environment and computes dynamic values. */
 func Load() Config {
 	loadDotEnv(".env")
 
@@ -78,24 +75,33 @@ func Load() Config {
 	}
 }
 
-// ProxyConfigured returns true if a proxy server has been set.
+/** ProxyConfigured returns true if a proxy server has been set. */
 func (c Config) ProxyConfigured() bool {
 	return strings.TrimSpace(c.ProxyServer) != ""
 }
 
-// ---------------------------------------------------------------------------
-// .env file loader
-// ---------------------------------------------------------------------------
+/** normalizeProxyServer ensures proxy URL has a scheme. */
+func normalizeProxyServer(raw string) string {
+	proxy := strings.TrimSpace(raw)
+	if proxy == "" {
+		return ""
+	}
+	if strings.Contains(proxy, "://") {
+		return proxy
+	}
+	return "socks5://" + proxy
+}
 
+/** loadDotEnv reads environment variables from a .env file. */
 func loadDotEnv(path string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return
 		}
-		return // silently ignore other errors
+		return
 	}
-	for lineNo, raw := range strings.Split(string(data), "\n") {
+	for _, raw := range strings.Split(string(data), "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -115,29 +121,10 @@ func loadDotEnv(path string) {
 			continue
 		}
 		_ = os.Setenv(key, value)
-		_ = lineNo // unused but kept for potential error messages
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Proxy normalization
-// ---------------------------------------------------------------------------
-
-func normalizeProxyServer(raw string) string {
-	proxy := strings.TrimSpace(raw)
-	if proxy == "" {
-		return ""
-	}
-	if strings.Contains(proxy, "://") {
-		return proxy
-	}
-	return "socks5://" + proxy
-}
-
-// ---------------------------------------------------------------------------
-// Environment helpers
-// ---------------------------------------------------------------------------
-
+/** getenvString retrieves a string environment variable with fallback. */
 func getenvString(key, fallback string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
@@ -145,6 +132,7 @@ func getenvString(key, fallback string) string {
 	return fallback
 }
 
+/** getenvInt retrieves an integer environment variable with fallback. */
 func getenvInt(key string, fallback int) int {
 	v := strings.TrimSpace(os.Getenv(key))
 	if v == "" {
@@ -157,6 +145,7 @@ func getenvInt(key string, fallback int) int {
 	return n
 }
 
+/** getenvBool retrieves a boolean environment variable with fallback. */
 func getenvBool(key string, fallback bool) bool {
 	v := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
 	if v == "" {
@@ -172,47 +161,17 @@ func getenvBool(key string, fallback bool) bool {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Concurrency / resource detection
-// ---------------------------------------------------------------------------
-
-// DetectConcurrency returns (poolSize, tabsPerBrowser) based on env or system resources.
+/** DetectConcurrency returns (poolSize, tabsPerBrowser) based on env or system resources. */
 func DetectConcurrency() (int, int) {
 	if poolRaw := strings.TrimSpace(os.Getenv("POOL_SIZE")); poolRaw != "" {
 		poolSize := getenvInt("POOL_SIZE", DefaultPoolSize)
 		tabsPerBrowser := getenvInt("TABS_PER_BROWSER", DefaultTabsPerBrowser)
 		return clampInt(poolSize, 1, 16), clampInt(tabsPerBrowser, 1, 4)
 	}
-
-	cpus := runtime.GOMAXPROCS(0)
-	memoryGB := detectMemoryGiB()
-
-	poolByCPU := maxInt(1, cpus/2)
-	poolByMem := maxInt(1, memoryGB/4)
-	poolSize := clampInt(minInt(poolByCPU, poolByMem), 1, 16)
-
-	if cpus >= 8 && memoryGB >= 12 {
-		return 4, 2
-	}
-	if poolSize >= 4 {
-		return poolSize, 2
-	}
-	if poolSize == 3 {
-		return poolSize, 3
-	}
-	if poolSize == 2 {
-		if cpus >= 6 && memoryGB >= 12 {
-			return poolSize, 3
-		}
-		return poolSize, 2
-	}
-	if cpus >= 4 && memoryGB >= 8 {
-		return 1, 2
-	}
-	return 1, 1
+	return DefaultPoolSize, DefaultTabsPerBrowser
 }
 
-// DetectGCRA returns (limit, period, retryAfter) for rate limiting.
+/** DetectGCRA returns (limit, period, retryAfter) for rate limiting. */
 func DetectGCRA(poolSize, tabsPerBrowser int) (int, time.Duration, time.Duration) {
 	period := DefaultGCRAPeriod
 	retryAfter := DefaultGCRARetryAfter
@@ -235,36 +194,7 @@ func DetectGCRA(poolSize, tabsPerBrowser int) (int, time.Duration, time.Duration
 	return clampInt(limit, 1, 1000), period, retryAfter
 }
 
-func detectMemoryGiB() int {
-	data, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 4
-	}
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if !strings.HasPrefix(line, "MemTotal:") {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			break
-		}
-		kb, err := strconv.Atoi(fields[1])
-		if err != nil || kb <= 0 {
-			break
-		}
-		gib := kb / (1024 * 1024)
-		if gib < 1 {
-			return 1
-		}
-		return gib
-	}
-	return 4
-}
-
-// ---------------------------------------------------------------------------
-// Integer helpers
-// ---------------------------------------------------------------------------
-
+/** clampInt constrains v between lo and hi. */
 func clampInt(v, lo, hi int) int {
 	if v < lo {
 		return lo
@@ -275,6 +205,7 @@ func clampInt(v, lo, hi int) int {
 	return v
 }
 
+/** minInt returns the minimum of a and b. */
 func minInt(a, b int) int {
 	if a < b {
 		return a
@@ -282,6 +213,7 @@ func minInt(a, b int) int {
 	return b
 }
 
+/** maxInt returns the maximum of a and b. */
 func maxInt(a, b int) int {
 	if a > b {
 		return a

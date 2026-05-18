@@ -15,12 +15,10 @@ import (
 	"github.com/chromedp/cdproto/page"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
-	"github.com/gin-gonic/gin"
 
 	"projek/internal/helpers"
 	"projek/internal/logger"
 	"projek/internal/model"
-	"projek/internal/monitor"
 )
 
 type solveJob struct {
@@ -39,10 +37,7 @@ type solveUAMJob struct {
 	Enqueued time.Time
 }
 
-func (w *worker) runSolve(job *solveJob, mon *monitor.Hub) model.SolveResult {
-	mon.RecordActiveDelta(1)
-	defer mon.RecordActiveDelta(-1)
-	mon.Publish("turnstile_start", gin.H{"worker_id": w.id, "url": job.Req.URL, "request_id": job.ID})
+func (w *worker) runSolve(job *solveJob) model.SolveResult {
 
 	tab, err := newTab(w.instance.rootCtx)
 	if err != nil {
@@ -181,10 +176,7 @@ func (w *worker) runSolve(job *solveJob, mon *monitor.Hub) model.SolveResult {
 	}
 }
 
-func (w *worker) runSolveUAM(job *solveUAMJob, mon *monitor.Hub) (model.SolveUAMResp, error) {
-	mon.RecordActiveDelta(1)
-	defer mon.RecordActiveDelta(-1)
-	mon.Publish("uam_start", gin.H{"worker_id": w.id, "url": job.URL, "request_id": job.ID})
+func (w *worker) runSolveUAM(job *solveUAMJob) (model.SolveUAMResp, error) {
 
 	debugPort := 9222 + w.id
 	sess, err := newRawSession(job.Ctx, debugPort)
@@ -335,7 +327,6 @@ func (w *worker) runSolveUAM(job *solveUAMJob, mon *monitor.Hub) (model.SolveUAM
 	w.instance.solveCount++
 
 	logger.Infof("[UAM] job %s success solve_ms=%d clearance_len=%d cookies=%d", job.ID, solveMS, len(clearance), len(cookies))
-	mon.Publish("uam_success", gin.H{"worker_id": w.id, "solve_ms": solveMS, "request_id": job.ID})
 
 	return model.SolveUAMResp{
 		CFClearance: clearance,

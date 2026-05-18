@@ -1,7 +1,18 @@
 package model
 
+/**
+ * Binding key for Turnstile token callback.
+ */
 const TurnstileBinding = "__solverTurnstileToken"
+
+/**
+ * PausedBufSize is the buffer size for paused events.
+ */
 const PausedBufSize = 128
+
+/**
+ * FakePage is an HTML template with Turnstile embedded.
+ */
 const FakePage = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,11 +43,13 @@ const FakePage = `<!DOCTYPE html>
 </body>
 </html>`
 
+/** SolveReq is the Turnstile solver request. */
 type SolveReq struct {
 	URL     string `json:"url" binding:"required"`
 	SiteKey string `json:"sitekey" binding:"required"`
 }
 
+/** SolveResp is the Turnstile solver response. */
 type SolveResp struct {
 	Token     string `json:"token"`
 	BootMS    int64  `json:"boot_ms"`
@@ -47,6 +60,7 @@ type SolveResp struct {
 	SolveMS   int64  `json:"solve_ms"`
 }
 
+/** SolveResult is the internal result from solver. */
 type SolveResult struct {
 	Token     string
 	BootMS    int64
@@ -58,10 +72,12 @@ type SolveResult struct {
 	Err       error
 }
 
+/** SolveUAMReq is the UAM solver request. */
 type SolveUAMReq struct {
 	URL string `json:"url" binding:"required"`
 }
 
+/** SolveUAMResp is the UAM solver response. */
 type SolveUAMResp struct {
 	CFClearance string       `json:"cf_clearance"`
 	UserAgent   string       `json:"user_agent"`
@@ -70,6 +86,7 @@ type SolveUAMResp struct {
 	SolveMS     int64        `json:"solve_ms"`
 }
 
+/** CookieInfo holds cookie data. */
 type CookieInfo struct {
 	Name   string `json:"name"`
 	Value  string `json:"value"`

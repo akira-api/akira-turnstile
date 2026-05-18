@@ -9,7 +9,6 @@ import (
 	"projek/internal/helpers"
 	"projek/internal/logger"
 	"projek/internal/model"
-	"projek/internal/monitor"
 )
 
 type Pool struct {
@@ -102,7 +101,7 @@ func (p *Pool) Close() {
 	}
 }
 
-func (p *Pool) Submit(parent context.Context, req model.SolveReq, timeout time.Duration, mon *monitor.Hub) (model.SolveResult, error) {
+func (p *Pool) Submit(parent context.Context, req model.SolveReq, timeout time.Duration) (model.SolveResult, error) {
 	jobCtx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	job := &solveJob{
@@ -116,11 +115,11 @@ func (p *Pool) Submit(parent context.Context, req model.SolveReq, timeout time.D
 	}
 	defer p.relWorker(w)
 	logger.Debugf("job %s acquired worker %d after %s", job.ID, w.id, time.Since(job.Enqueued))
-	res := w.runSolve(job, mon)
+	res := w.runSolve(job)
 	return res, res.Err
 }
 
-func (p *Pool) SubmitUAM(parent context.Context, rawURL string, timeout time.Duration, mon *monitor.Hub) (model.SolveUAMResp, error) {
+func (p *Pool) SubmitUAM(parent context.Context, rawURL string, timeout time.Duration) (model.SolveUAMResp, error) {
 	jobCtx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	job := &solveUAMJob{
@@ -134,7 +133,7 @@ func (p *Pool) SubmitUAM(parent context.Context, rawURL string, timeout time.Dur
 	}
 	defer p.relWorker(w)
 	logger.Debugf("job %s acquired worker %d after %s", job.ID, w.id, time.Since(job.Enqueued))
-	res, err := w.runSolveUAM(job, mon)
+	res, err := w.runSolveUAM(job)
 	return res, err
 }
 

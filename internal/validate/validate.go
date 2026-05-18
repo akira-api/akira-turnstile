@@ -1,3 +1,6 @@
+/**
+ * Package validate provides URL and IP address validation for solver requests.
+ */
 package validate
 
 import (
@@ -11,6 +14,10 @@ import (
 	"time"
 )
 
+/**
+ * URL validates and normalizes a target URL.
+ * Checks for valid scheme, non-empty host, blocked IP ranges, and DNS resolution (if no proxy).
+ */
 func URL(ctx context.Context, raw, proxyServer string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -54,6 +61,7 @@ func URL(ctx context.Context, raw, proxyServer string) (string, error) {
 	return u.String(), nil
 }
 
+/** blockedHost checks if a hostname is in the blocked list. */
 func blockedHost(host string) bool {
 	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
 		return true
@@ -68,6 +76,7 @@ func blockedHost(host string) bool {
 	return false
 }
 
+/** blockedIP checks if an IP is in reserved or private ranges. */
 func blockedIP(ip net.IP) bool {
 	addr, ok := netip.AddrFromSlice(ip)
 	if !ok {

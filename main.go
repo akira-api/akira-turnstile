@@ -11,11 +11,13 @@ import (
 	"projek/internal/browser"
 	"projek/internal/config"
 	"projek/internal/logger"
-	"projek/internal/monitor"
 	"projek/internal/server"
 	"projek/internal/xvfb"
 )
 
+/**
+ * Turnstile solver - solves Cloudflare challenges via Chrome DevTools Protocol
+ */
 func main() {
 	logger.Init()
 
@@ -40,17 +42,14 @@ func main() {
 	defer xv.Stop()
 	logger.Debugf("xvfb ready: display=%q", xv.Display)
 
-	mon := monitor.New()
-
 	pool, err := browser.NewPool(rootCtx, cfg, xv.Display)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer pool.Close()
 	logger.Debugf("browser pool initialized: workers=%d display=%q", pool.Workers(), pool.Display())
-	mon.SetBrowserWorkers(cfg.PoolSize)
 
-	if err := server.Listen(rootCtx, cfg, pool, mon); err != nil {
+	if err := server.Listen(rootCtx, cfg, pool); err != nil {
 		log.Fatal(err)
 	}
 }

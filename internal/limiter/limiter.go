@@ -1,5 +1,7 @@
-// Package limiter provides a GCRA (Generic Cell Rate Algorithm) rate limiter
-// suitable for HTTP middleware.
+/**
+ * Package limiter provides a GCRA (Generic Cell Rate Algorithm) rate limiter
+ * suitable for HTTP middleware.
+ */
 package limiter
 
 import (
@@ -13,7 +15,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GCRALimiter implements token-bucket-style rate limiting.
+/**
+ * GCRALimiter implements token-bucket-style rate limiting.
+ */
 type GCRALimiter struct {
 	mu               sync.Mutex
 	emissionInterval time.Duration
@@ -23,8 +27,10 @@ type GCRALimiter struct {
 	nextCleanup      time.Time
 }
 
-// New creates a new GCRA rate limiter.
-// Example: New(10, 3*time.Second, 2*time.Second) allows 10 requests per 3 seconds.
+/**
+ * New creates a new GCRA rate limiter.
+ * Example: New(10, 3*time.Second, 2*time.Second) allows 10 requests per 3 seconds.
+ */
 func New(limit int, period, retryAfter time.Duration) *GCRALimiter {
 	return &GCRALimiter{
 		emissionInterval: period / time.Duration(limit),
@@ -35,7 +41,9 @@ func New(limit int, period, retryAfter time.Duration) *GCRALimiter {
 	}
 }
 
-// Middleware returns a Gin handler that enforces rate limits per caller.
+/**
+ * Middleware returns a Gin handler that enforces rate limits per caller.
+ */
 func (l *GCRALimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.FullPath()
@@ -53,6 +61,7 @@ func (l *GCRALimiter) Middleware() gin.HandlerFunc {
 	}
 }
 
+/** Allow checks if a request should be allowed. */
 func (l *GCRALimiter) allow(key string, now time.Time) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -77,6 +86,7 @@ func (l *GCRALimiter) allow(key string, now time.Time) bool {
 	return true
 }
 
+/** cleanupExpiredLocked removes expired entries (should be called under lock). */
 func (l *GCRALimiter) cleanupExpiredLocked(now time.Time) {
 	for key, tat := range l.entries {
 		if now.After(tat.Add(l.burst)) {
@@ -85,6 +95,7 @@ func (l *GCRALimiter) cleanupExpiredLocked(now time.Time) {
 	}
 }
 
+/** callerIdentity extracts the caller IP from request. */
 func callerIdentity(r *http.Request) string {
 	remoteAddr := strings.TrimSpace(r.RemoteAddr)
 	if remoteAddr == "" {

@@ -17,10 +17,12 @@ import (
 
 var requestSeq atomic.Uint64
 
+/** NextID generates a request ID with the given prefix. */
 func NextID(prefix string) string {
 	return fmt.Sprintf("%s-%06d", prefix, requestSeq.Add(1))
 }
 
+/** TargetExec extracts the executor from chromedp context. */
 func TargetExec(ctx context.Context) (context.Context, error) {
 	c := chromedp.FromContext(ctx)
 	if c == nil || c.Target == nil {
@@ -29,6 +31,7 @@ func TargetExec(ctx context.Context) (context.Context, error) {
 	return cdp.WithExecutor(ctx, c.Target), nil
 }
 
+/** SleepCtx sleeps until duration or context cancellation. */
 func SleepCtx(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)
 	defer t.Stop()
@@ -40,6 +43,7 @@ func SleepCtx(ctx context.Context, d time.Duration) error {
 	}
 }
 
+/** Mask returns a masked representation of a string for logging. */
 func Mask(v string) string {
 	v = strings.TrimSpace(v)
 	if v == "" {
@@ -51,6 +55,7 @@ func Mask(v string) string {
 	return fmt.Sprintf("len=%d:%s...%s", len(v), v[:4], v[len(v)-4:])
 }
 
+/** SummarizeObjs converts CDP remote objects to a readable string. */
 func SummarizeObjs(args []*cdpruntime.RemoteObject) string {
 	if len(args) == 0 {
 		return "<no-args>"
@@ -74,6 +79,7 @@ func SummarizeObjs(args []*cdpruntime.RemoteObject) string {
 	return strings.Join(parts, " | ")
 }
 
+/** SummarizeExc converts CDP exception details to a readable string. */
 func SummarizeExc(d *cdpruntime.ExceptionDetails) string {
 	if d == nil {
 		return "<nil>"
@@ -99,6 +105,7 @@ func SummarizeExc(d *cdpruntime.ExceptionDetails) string {
 	return strings.Join(parts, " | ")
 }
 
+/** TruncS truncates a string to maximum length with ellipsis. */
 func TruncS(s string, max int) string {
 	s = strings.TrimSpace(s)
 	if max <= 0 || len(s) <= max {
@@ -110,6 +117,7 @@ func TruncS(s string, max int) string {
 	return s[:max-3] + "..."
 }
 
+/** DetectMem reads system memory from /proc/meminfo (GiB). */
 func DetectMem() int {
 	data, err := os.ReadFile("/proc/meminfo")
 	if err != nil {

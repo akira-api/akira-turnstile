@@ -103,6 +103,7 @@ func browserOpts(display, proxyServer string, allowNoSandbox bool, debugPort int
 	opts := []chromedp.ExecAllocatorOption{
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
+		chromedp.Flag("headless", false),
 		chromedp.Flag("disable-background-networking", true),
 		chromedp.Flag("disable-client-side-phishing-detection", true),
 		chromedp.Flag("disable-default-apps", true),
