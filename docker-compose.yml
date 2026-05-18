@@ -9,6 +9,10 @@ services:
       - .env
     environment:
       BROWSER_HEADLESS: "false"
+    cap_add:
+      - SYS_ADMIN       # required for user namespace
+    security_opt:
+      - seccomp:./chrome-seccomp.json  # custom profile
     expose:
       - "4557"
     networks:
