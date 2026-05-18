@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -32,19 +33,19 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 
 	/** Turnstile solver endpoint. */
 	r.POST("/api/solve", func(c *gin.Context) {
+		startedAt := time.Now()
 		reqID := helpers.NextID("solve")
-		logger.HTTPSf("method=POST path=/api/solve phase=in ip=%s req=%s", c.ClientIP(), reqID)
 
 		var req model.SolveReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			logger.HTTPSf("method=POST path=/api/solve phase=out req=%s status=400 err=bind", reqID)
+			logHTTPSAccess(c.Request.Method, "/api/solve", reqID, c.ClientIP(), http.StatusBadRequest, startedAt, "error=bind")
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		normalizedURL, err := validate.URL(c.Request.Context(), req.URL, cfg.ProxyServer)
 		if err != nil {
-			logger.HTTPSf("method=POST path=/api/solve phase=out req=%s status=400 err=url", reqID)
+			logHTTPSAccess(c.Request.Method, "/api/solve", reqID, c.ClientIP(), http.StatusBadRequest, startedAt, "error=url")
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -59,12 +60,12 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 			case errors.Is(err, context.Canceled):
 				status = http.StatusRequestTimeout
 			}
-			logger.HTTPSf("method=POST path=/api/solve phase=out req=%s status=%d err=%v", reqID, status, err)
+			logHTTPSAccess(c.Request.Method, "/api/solve", reqID, c.ClientIP(), status, startedAt, "error="+err.Error())
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
 		}
 
-		logger.HTTPSf("method=POST path=/api/solve phase=out req=%s status=200 solve_ms=%d", reqID, res.SolveMS)
+		logHTTPSAccess(c.Request.Method, "/api/solve", reqID, c.ClientIP(), http.StatusOK, startedAt, fmt.Sprintf("solve_ms=%d", res.SolveMS))
 		c.JSON(http.StatusOK, model.SolveResp{
 			Token: res.Token, BootMS: res.BootMS, NavMS: res.NavMS,
 			DetectMS: res.DetectMS, HitCount: res.HitCount,
@@ -74,19 +75,19 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 
 	/** Cloudflare UAM solver endpoint. */
 	r.POST("/api/solve/uam", func(c *gin.Context) {
+		startedAt := time.Now()
 		reqID := helpers.NextID("uam")
-		logger.HTTPSf("method=POST path=/api/solve/uam phase=in ip=%s req=%s", c.ClientIP(), reqID)
 
 		var req model.SolveUAMReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			logger.HTTPSf("method=POST path=/api/solve/uam phase=out req=%s status=400 err=bind", reqID)
+			logHTTPSAccess(c.Request.Method, "/api/solve/uam", reqID, c.ClientIP(), http.StatusBadRequest, startedAt, "error=bind")
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		normalizedURL, err := validate.URL(c.Request.Context(), req.URL, cfg.ProxyServer)
 		if err != nil {
-			logger.HTTPSf("method=POST path=/api/solve/uam phase=out req=%s status=400 err=url", reqID)
+			logHTTPSAccess(c.Request.Method, "/api/solve/uam", reqID, c.ClientIP(), http.StatusBadRequest, startedAt, "error=url")
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -100,12 +101,12 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 			case errors.Is(err, context.Canceled):
 				status = http.StatusRequestTimeout
 			}
-			logger.HTTPSf("method=POST path=/api/solve/uam phase=out req=%s status=%d err=%v", reqID, status, err)
+			logHTTPSAccess(c.Request.Method, "/api/solve/uam", reqID, c.ClientIP(), status, startedAt, "error="+err.Error())
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
 		}
 
-		logger.HTTPSf("method=POST path=/api/solve/uam phase=out req=%s status=200 solve_ms=%d", reqID, res.SolveMS)
+		logHTTPSAccess(c.Request.Method, "/api/solve/uam", reqID, c.ClientIP(), http.StatusOK, startedAt, fmt.Sprintf("solve_ms=%d", res.SolveMS))
 		c.JSON(http.StatusOK, res)
 	})
 
@@ -135,4 +136,23 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 		}
 	}
 	return nil
+}
+
+func logHTTPSAccess(method, path, reqID, ip string, status int, startedAt time.Time, extra string) {
+	fields := []string{
+		"method=" + method,
+		"path=" + path,
+		"status=" + fmt.Sprintf("%d", status),
+		"duration_ms=" + fmt.Sprintf("%d", time.Since(startedAt).Milliseconds()),
+	}
+	if reqID != "" {
+		fields = append(fields, "req_id="+reqID)
+	}
+	if ip != "" {
+		fields = append(fields, "ip="+ip)
+	}
+	if extra != "" {
+		fields = append(fields, extra)
+	}
+	logger.HTTPSf(strings.Join(fields, " "))
 }
