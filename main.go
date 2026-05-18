@@ -19,9 +19,8 @@ import (
  * Turnstile solver - solves Cloudflare challenges via Chrome DevTools Protocol
  */
 func main() {
-	logger.Init()
-
 	cfg := config.Load()
+	logger.Init()
 	logger.Debugf("startup config: port=%s pool_size=%d tabs_per_browser=%d browser_max_age=%s browser_max_solves=%d solve_timeout=%s proxy_configured=%t goos=%s gomaxprocs=%d existing_display=%q",
 		cfg.Port, cfg.PoolSize, cfg.TabsPerBrowser, cfg.BrowserMaxAge, cfg.BrowserMaxSolves, cfg.SolveTimeout, cfg.ProxyConfigured(),
 		runtime.GOOS, runtime.GOMAXPROCS(0), os.Getenv("DISPLAY"))
