@@ -1,0 +1,31 @@
+services:
+  solver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: akira-turnstile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      BROWSER_HEADLESS: "false"
+    expose:
+      - "4557"
+    volumes:
+      - ./debug:/home/solver/debug
+    networks:
+      - akira-net
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: turnstile-cloudflared
+    restart: unless-stopped
+    depends_on:
+      - solver
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+    networks:
+      - akira-net
+
+networks:
+  akira-net:
+    driver: bridge

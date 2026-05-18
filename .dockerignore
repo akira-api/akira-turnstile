@@ -1,0 +1,11 @@
+bin/
+debug/
+node_modules/
+.git
+.env
+**/*.log
+**/*.exe
+**/*.test
+_output/
+vendor/
+tmp/
