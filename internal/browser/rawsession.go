@@ -25,10 +25,10 @@ var marshalOpts = jsonv2.JoinOptions(
 )
 
 type rawSession struct {
+	nextID    int64 // Must be first for proper alignment on 32-bit systems
 	conn      *rawConn
 	sessionID target.SessionID
 	targetID  target.ID
-	nextID    int64
 	pending   map[int64]chan *cdproto.Message
 	listenCtx context.Context
 	listenFn  func(ev any)
