@@ -33,18 +33,18 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 	/** Turnstile solver endpoint. */
 	r.POST("/api/solve", func(c *gin.Context) {
 		reqID := helpers.NextID("solve")
-		logger.Infof("[IN] /solve ip=%s req=%s", c.ClientIP(), reqID)
+		logger.HTTPSf("method=POST path=/api/solve phase=in ip=%s req=%s", c.ClientIP(), reqID)
 
 		var req model.SolveReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			logger.Infof("[OUT] /solve req=%s status=400 err=bind", reqID)
+			logger.HTTPSf("method=POST path=/api/solve phase=out req=%s status=400 err=bind", reqID)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		normalizedURL, err := validate.URL(c.Request.Context(), req.URL, cfg.ProxyServer)
 		if err != nil {
-			logger.Infof("[OUT] /solve req=%s status=400 err=url", reqID)
+			logger.HTTPSf("method=POST path=/api/solve phase=out req=%s status=400 err=url", reqID)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -59,12 +59,12 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 			case errors.Is(err, context.Canceled):
 				status = http.StatusRequestTimeout
 			}
-			logger.Infof("[OUT] /solve req=%s status=%d err=%v", reqID, status, err)
+			logger.HTTPSf("method=POST path=/api/solve phase=out req=%s status=%d err=%v", reqID, status, err)
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
 		}
 
-		logger.Infof("[OUT] /solve req=%s status=200 solve_ms=%d", reqID, res.SolveMS)
+		logger.HTTPSf("method=POST path=/api/solve phase=out req=%s status=200 solve_ms=%d", reqID, res.SolveMS)
 		c.JSON(http.StatusOK, model.SolveResp{
 			Token: res.Token, BootMS: res.BootMS, NavMS: res.NavMS,
 			DetectMS: res.DetectMS, HitCount: res.HitCount,
@@ -75,18 +75,18 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 	/** Cloudflare UAM solver endpoint. */
 	r.POST("/api/solve/uam", func(c *gin.Context) {
 		reqID := helpers.NextID("uam")
-		logger.Infof("[IN] /uam ip=%s req=%s", c.ClientIP(), reqID)
+		logger.HTTPSf("method=POST path=/api/solve/uam phase=in ip=%s req=%s", c.ClientIP(), reqID)
 
 		var req model.SolveUAMReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			logger.Infof("[OUT] /uam req=%s status=400 err=bind", reqID)
+			logger.HTTPSf("method=POST path=/api/solve/uam phase=out req=%s status=400 err=bind", reqID)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		normalizedURL, err := validate.URL(c.Request.Context(), req.URL, cfg.ProxyServer)
 		if err != nil {
-			logger.Infof("[OUT] /uam req=%s status=400 err=url", reqID)
+			logger.HTTPSf("method=POST path=/api/solve/uam phase=out req=%s status=400 err=url", reqID)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -100,12 +100,12 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 			case errors.Is(err, context.Canceled):
 				status = http.StatusRequestTimeout
 			}
-			logger.Infof("[OUT] /uam req=%s status=%d err=%v", reqID, status, err)
+			logger.HTTPSf("method=POST path=/api/solve/uam phase=out req=%s status=%d err=%v", reqID, status, err)
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
 		}
 
-		logger.Infof("[OUT] /uam req=%s status=200 solve_ms=%d", reqID, res.SolveMS)
+		logger.HTTPSf("method=POST path=/api/solve/uam phase=out req=%s status=200 solve_ms=%d", reqID, res.SolveMS)
 		c.JSON(http.StatusOK, res)
 	})
 

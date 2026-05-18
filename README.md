@@ -65,7 +65,7 @@ cp .env.example .env
 | `BROWSER_MAX_AGE_MIN` | `30`    | Browser restart interval (minutes)            |
 | `BROWSER_MAX_SOLVES`  | `50`    | Max solves before browser restart             |
 | `SOLVE_TIMEOUT_SEC`   | `60`    | Per-request timeout                           |
-| `DEBUG`               | `0`     | Enable debug logging                          |
+| `DEBUG`               | `false` | Enable debug logging                          |
 | `ALLOW_NO_SANDBOX`    | `false` | Allow Chrome without sandbox (root)           |
 | `XVFB_DISPLAY_BASE`   | `400`   | Base display number for Xvfb                  |
 | `CLOUDFLARED_TOKEN`   | —       | Cloudflare Tunnel token for `cloudflared`     |

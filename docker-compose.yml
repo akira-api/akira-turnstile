@@ -11,8 +11,6 @@ services:
       BROWSER_HEADLESS: "false"
     expose:
       - "4557"
-    volumes:
-      - ./debug:/home/solver/debug
     networks:
       - akira-net
 

@@ -1,37 +1,65 @@
-/**
- * Package logger provides toggleable debug logging.
- * When DEBUG not set: only Info-level messages appear (request in/out, errors).
- * When DEBUG=1: all Debugf messages are also printed.
- */
 package logger
 
+/**
+ * Package logger provides colored, prefixed logging.
+ * DEBUG accepts only true/false and controls debug output.
+ * App logs use [level] [app], request logs use [level] [https].
+ */
+
 import (
+	"fmt"
 	"log"
 	"os"
+	"time"
 	"strings"
 )
 
 var active bool
+var jakartaLocation *time.Location
+
+const (
+	colorReset   = "\x1b[0m"
+	colorGray    = "\x1b[90m"
+	colorCyan    = "\x1b[36m"
+	colorBlue    = "\x1b[34m"
+	colorGreen   = "\x1b[32m"
+	colorMagenta = "\x1b[35m"
+)
 
 /** Init must be called once at startup before any logging. */
 func Init() {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv("DEBUG")))
-	active = v == "1" || v == "true" || v == "yes" || v == "on"
+	log.SetFlags(0)
+	jakartaLocation = time.FixedZone("Asia/Jakarta", 7*60*60)
+	if loc, err := time.LoadLocation("Asia/Jakarta"); err == nil {
+		jakartaLocation = loc
+	}
+	active = parseBoolStrict(os.Getenv("DEBUG"))
 }
 
 /** Debugf logs only when debug mode is active. */
 func Debugf(format string, args ...any) {
 	if active {
-		log.Printf("[debug] "+format, args...)
+		logLine("debug", "app", colorMagenta, colorBlue, format, args...)
 	}
 }
 
-/** Infof always logs. Use for request in/out, errors, and startup messages. */
+/** Infof logs application messages. */
 func Infof(format string, args ...any) {
-	log.Printf(format, args...)
+	logLine("info", "app", colorGreen, colorBlue, format, args...)
 }
 
-/** Enabled returns true if debug mode is on. */
-func Enabled() bool {
-	return active
+/** HTTPSf logs HTTP access-style messages. */
+func HTTPSf(format string, args ...any) {
+	logLine("info", "https", colorGreen, colorCyan, format, args...)
+}
+
+func logLine(level, component, levelColor, componentColor, format string, args ...any) {
+	message := fmt.Sprintf(format, args...)
+	timestamp := time.Now().In(jakartaLocation).Format("2006-01-02 15:04:05")
+	log.Printf("%s%s%s %s[%s]%s %s[%s]%s %s", colorGray, timestamp, colorReset, levelColor, level, colorReset, componentColor, component, colorReset, message)
+}
+
+func parseBoolStrict(raw string) bool {
+	v := strings.ToLower(strings.TrimSpace(raw))
+	return v == "true"
 }
