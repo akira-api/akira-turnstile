@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 	"strings"
+	"time"
 )
 
 var active bool
@@ -48,9 +48,9 @@ func Infof(format string, args ...any) {
 	logLine("info", "app", colorGreen, colorBlue, format, args...)
 }
 
-/** HTTPSf logs HTTP access-style messages. */
-func HTTPSf(format string, args ...any) {
-	logLine("info", "https", colorGreen, colorCyan, format, args...)
+/** HTTPSf logs HTTP access-style messages. Accepts a single message string. */
+func HTTPSf(msg string) {
+	logLine("info", "https", colorGreen, colorCyan, "%s", msg)
 }
 
 func logLine(level, component, levelColor, componentColor, format string, args ...any) {

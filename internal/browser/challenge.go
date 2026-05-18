@@ -102,9 +102,10 @@ func (w *worker) checkClick(ctx context.Context, jobID string) bool {
 			}
 
 			tx := info.X + 30 + (rand.Float64() * 10)
-			if info.Type == "chk" || info.Type == "sq" {
+			switch info.Type {
+			case "chk", "sq":
 				tx = info.X + (info.W / 2.0) + (rand.Float64() * 3) - 1.5
-			} else if info.Type == "row" {
+			case "row":
 				tx = info.X + 24 + (rand.Float64() * 4) - 2
 			}
 			ty := info.Y + (info.H / 2.0) + (rand.Float64() * 4) - 2

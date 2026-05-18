@@ -88,11 +88,24 @@ func getBrowserWSURL(port int) (string, error) {
 }
 
 func (c *rawConn) send(ctx context.Context, msg *cdproto.Message) error {
+	// respect context cancellation before attempting write
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	buf, err := jsonv2.Marshal(msg, marshalOpts)
 	if err != nil {
 		return err
+	}
+	// set write deadline from context if present, otherwise clear deadline
+	if dl, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(dl)
+	} else {
+		_ = c.conn.SetWriteDeadline(time.Time{})
 	}
 	if err := wsutil.WriteClientText(c.conn, buf); err != nil {
 		return err
@@ -101,9 +114,18 @@ func (c *rawConn) send(ctx context.Context, msg *cdproto.Message) error {
 }
 
 func (c *rawConn) read(ctx context.Context) (*cdproto.Message, error) {
+	// set read deadline from context if present, otherwise use a sensible default
+	if dl, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetReadDeadline(dl)
+	} else {
+		_ = c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	}
 	c.reader = wsutil.Reader{Source: c.conn, State: ws.StateClientSide}
 	h, err := c.reader.NextFrame()
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return nil, err
 	}
 	if h.OpCode == ws.OpClose {
