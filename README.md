@@ -7,7 +7,6 @@ High-performance API to bypass Cloudflare Turnstile, UAM, and JS challenges usin
 - **Turnstile Solver** — Automatically solves Cloudflare Turnstile challenges
 - **UAM Bypass** — Handles "Under Attack Mode" (JS challenge) pages
 - **Browser Pool** — Persistent Chrome instances with automatic recycling
-- **Rate Limited** — GCRA algorithm to prevent abuse
 - **Live Monitoring** — WebSocket endpoint for real-time stats
 - **Xvfb Support** — Virtual framebuffer for headless environments
 
@@ -20,7 +19,7 @@ High-performance API to bypass Cloudflare Turnstile, UAM, and JS challenges usin
 | Web Framework      | Gin               |
 | WebSocket          | gorilla/websocket |
 | Display            | Xvfb              |
-| Rate Limiting      | GCRA              |
+| Rate Limiting      | None              |
 
 ## API Endpoints
 
@@ -66,8 +65,6 @@ cp .env.example .env
 | `BROWSER_MAX_AGE_MIN` | `30`    | Browser restart interval (minutes)            |
 | `BROWSER_MAX_SOLVES`  | `50`    | Max solves before browser restart             |
 | `SOLVE_TIMEOUT_SEC`   | `60`    | Per-request timeout                           |
-| `GCRA_LIMIT`          | `10`    | Rate limit (requests per period)              |
-| `GCRA_PERIOD_MS`      | `3000`  | Rate limit period (ms)                        |
 | `DEBUG`               | `0`     | Enable debug logging                          |
 | `ALLOW_NO_SANDBOX`    | `false` | Allow Chrome without sandbox (root)           |
 | `XVFB_DISPLAY_BASE`   | `400`   | Base display number for Xvfb                  |

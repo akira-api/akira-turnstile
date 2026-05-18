@@ -12,7 +12,6 @@ import (
 	"projek/internal/browser"
 	"projek/internal/config"
 	"projek/internal/helpers"
-	"projek/internal/limiter"
 	"projek/internal/logger"
 	"projek/internal/model"
 	"projek/internal/validate"
@@ -26,16 +25,13 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	/** Rate limiter for solve endpoints. */
-	lim := limiter.New(cfg.GCRALimit, cfg.GCRAPeriod, cfg.GCRARetryAfter)
-
 	/** Health check endpoint. */
 	r.GET("/api/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
 	/** Turnstile solver endpoint. */
-	r.POST("/api/solve", lim.Middleware(), func(c *gin.Context) {
+	r.POST("/api/solve", func(c *gin.Context) {
 		reqID := helpers.NextID("solve")
 		logger.Infof("[IN] /solve ip=%s req=%s", c.ClientIP(), reqID)
 
@@ -77,7 +73,7 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 	})
 
 	/** Cloudflare UAM solver endpoint. */
-	r.POST("/api/solve/uam", lim.Middleware(), func(c *gin.Context) {
+	r.POST("/api/solve/uam", func(c *gin.Context) {
 		reqID := helpers.NextID("uam")
 		logger.Infof("[IN] /uam ip=%s req=%s", c.ClientIP(), reqID)
 
