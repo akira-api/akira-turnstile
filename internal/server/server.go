@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/http"
@@ -25,14 +26,17 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
+	authMiddleware := newAPIKeyAuth(cfg.APIKey)
 
 	/** Health check endpoint. */
 	r.GET("/api/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
+	protected := r.Group("/", authMiddleware)
+
 	/** Turnstile solver endpoint. */
-	r.POST("/api/solve", func(c *gin.Context) {
+	protected.POST("/api/solve", func(c *gin.Context) {
 		startedAt := time.Now()
 		reqID := helpers.NextID("solve")
 
@@ -74,7 +78,7 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 	})
 
 	/** Cloudflare UAM solver endpoint. */
-	r.POST("/api/solve/uam", func(c *gin.Context) {
+	protected.POST("/api/solve/uam", func(c *gin.Context) {
 		startedAt := time.Now()
 		reqID := helpers.NextID("uam")
 
@@ -136,6 +140,26 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 		}
 	}
 	return nil
+}
+
+func newAPIKeyAuth(expected string) gin.HandlerFunc {
+	expected = strings.TrimSpace(expected)
+	if expected == "" {
+		return func(c *gin.Context) {
+			c.Next()
+		}
+	}
+	return func(c *gin.Context) {
+		provided := strings.TrimSpace(c.GetHeader("apikey"))
+		if provided == "" {
+			provided = strings.TrimSpace(c.GetHeader("X-API-Key"))
+		}
+		if provided == "" || subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		c.Next()
+	}
 }
 
 func logHTTPSAccess(method, path, reqID, ip string, status int, startedAt time.Time, extra string) {

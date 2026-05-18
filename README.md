@@ -1,100 +1,80 @@
 # CF Clearance Scraper
 
-High-performance API to bypass Cloudflare Turnstile, UAM, and JS challenges using Chrome DevTools Protocol (CDP). Built with Go and chromedp.
+API for solving Cloudflare Turnstile and UAM challenges.
 
-## Features
+## What it does
 
-- **Turnstile Solver** — Automatically solves Cloudflare Turnstile challenges
-- **UAM Bypass** — Handles "Under Attack Mode" (JS challenge) pages
-- **Browser Pool** — Persistent Chrome instances with automatic recycling
-- **Live Monitoring** — WebSocket endpoint for real-time stats
-- **Xvfb Support** — Virtual framebuffer for headless environments
+- `POST /api/solve` solves a Turnstile challenge.
+- `POST /api/solve/uam` handles UAM pages.
+- `GET /api/healthz` returns a simple health check.
 
-## Tech Stack
+## Docker setup
 
-| Component          | Technology        |
-| ------------------ | ----------------- |
-| Language           | Go 1.26           |
-| Browser Automation | chromedp (CDP)    |
-| Web Framework      | Gin               |
-| WebSocket          | gorilla/websocket |
-| Display            | Xvfb              |
-| Rate Limiting      | None              |
+1. Copy the sample environment file.
 
-## API Endpoints
+   ```bash
+   cp .env.example .env
+   ```
 
-### `POST /api/solve`
+2. Set the values you need in `.env`.
+   - `API_KEY` protects the API endpoints.
+   - `PROXY_SERVER` is optional.
+   - `CLOUDFLARED_TOKEN` is required only if you want the bundled `cloudflared` container to run.
 
-Solve a Turnstile challenge.
+3. Start the stack.
 
-```json
-{
-  "url": "https://target.example/",
-  "sitekey": "your-turnstile-sitekey"
-}
-```
+   ```bash
+   docker compose up -d --build
+   ```
 
-### `POST /api/solve/uam`
+The solver container runs with Chromium and Xvfb inside Docker. You do not need Go or Chromium installed on the host.
 
-Bypass Cloudflare "Under Attack Mode" (JS challenge).
+## Authentication
 
-```json
-{
-  "url": "https://target-protected.example/"
-}
-```
-
-### `GET /ws`
-
-WebSocket endpoint for live monitoring stats.
-
-## Configuration
-
-Copy `.env.example` to `.env` and adjust:
+Protected endpoints expect the `apikey` header.
 
 ```bash
-cp .env.example .env
+curl -H "apikey: your-secret" http://localhost:4557/api/healthz
 ```
 
-| Variable              | Default | Description                                   |
-| --------------------- | ------- | --------------------------------------------- |
-| `PORT`                | `4557`  | HTTP server port                              |
-| `PROXY_SERVER`        | —       | SOCKS5 proxy (e.g. `socks5://127.0.0.1:1080`) |
-| `POOL_SIZE`           | auto    | Number of browser workers                     |
-| `TABS_PER_BROWSER`    | auto    | Tabs per browser instance                     |
-| `BROWSER_MAX_AGE_MIN` | `30`    | Browser restart interval (minutes)            |
-| `BROWSER_MAX_SOLVES`  | `50`    | Max solves before browser restart             |
-| `SOLVE_TIMEOUT_SEC`   | `60`    | Per-request timeout                           |
-| `DEBUG`               | `false` | Enable debug logging                          |
-| `ALLOW_NO_SANDBOX`    | `false` | Allow Chrome without sandbox (root)           |
-| `XVFB_DISPLAY_BASE`   | `400`   | Base display number for Xvfb                  |
-| `CLOUDFLARED_TOKEN`   | —       | Cloudflare Tunnel token for `cloudflared`     |
+## API usage
 
-## Docker Compose
-
-The bundled compose file starts the solver in headed mode with Xvfb and adds a `cloudflared` container that tunnels to `solver:4557`.
+### Solve Turnstile
 
 ```bash
-docker compose up -d --build
+curl -X POST http://localhost:4557/api/solve \
+  -H "Content-Type: application/json" \
+  -H "apikey: your-secret" \
+  -d '{
+    "url": "https://target.example/",
+    "sitekey": "your-turnstile-sitekey"
+  }'
 ```
 
-Set `CLOUDFLARED_TOKEN` in your `.env` before starting the stack.
-
-## Build & Run
+### Solve UAM
 
 ```bash
-go build -o solver ./main.go
-./solver
+curl -X POST http://localhost:4557/api/solve/uam \
+  -H "Content-Type: application/json" \
+  -H "apikey: your-secret" \
+  -d '{
+    "url": "https://target-protected.example/"
+  }'
 ```
 
-Or with live reload during development:
+## Environment variables
 
-```bash
-go run ./main.go
-```
-
-## Requirements
-
-- Go 1.26+
-- Chrome/Chromium installed
-- Xvfb (for headless servers)
+| Variable              | Default | Description                               |
+| --------------------- | ------- | ----------------------------------------- |
+| `PORT`                | `4557`  | HTTP server port                          |
+| `PROXY_SERVER`        | none    | Optional SOCKS5 proxy URL                 |
+| `API_KEY`             | none    | API key required by protected endpoints   |
+| `DEBUG`               | `false` | Enable debug logging                      |
+| `ALLOW_NO_SANDBOX`    | `false` | Allow Chrome to run without sandbox       |
+| `XVFB_DISPLAY_BASE`   | `400`   | Base display number for Xvfb              |
+| `POOL_SIZE`           | `1`     | Browser worker count                      |
+| `TABS_PER_BROWSER`    | `1`     | Tabs per browser instance                 |
+| `BROWSER_MAX_AGE_MIN` | `30`    | Browser restart interval in minutes       |
+| `BROWSER_MAX_SOLVES`  | `50`    | Max solves before browser restart         |
+| `SOLVE_TIMEOUT_SEC`   | `60`    | Per-request timeout in seconds            |
+| `CLOUDFLARED_TOKEN`   | none    | Cloudflare Tunnel token for `cloudflared` |

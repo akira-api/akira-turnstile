@@ -34,6 +34,7 @@ type Config struct {
 	BrowserMaxSolves  int64
 	SolveTimeout      time.Duration
 	ProxyServer       string
+	APIKey            string
 	AllowNoSandbox    bool
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
@@ -58,6 +59,7 @@ func Load() Config {
 		BrowserMaxSolves: int64(getenvInt("BROWSER_MAX_SOLVES", int(DefaultBrowserMaxSolve))),
 		SolveTimeout:     time.Duration(getenvInt("SOLVE_TIMEOUT_SEC", int(DefaultSolveTimeout/time.Second))) * time.Second,
 		ProxyServer:      normalizeProxyServer(getenvString("PROXY_SERVER", "")),
+		APIKey:           getenvString("API_KEY", ""),
 		AllowNoSandbox:   allowNoSandbox,
 		ReadTimeout:      15 * time.Second,
 		WriteTimeout:     75 * time.Second,
