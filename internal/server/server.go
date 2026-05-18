@@ -114,6 +114,43 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 		c.JSON(http.StatusOK, res)
 	})
 
+	/** Direct Turnstile solver endpoint. */
+	protected.POST("/api/solve/direct", func(c *gin.Context) {
+		startedAt := time.Now()
+		reqID := helpers.NextID("direct")
+
+		var req model.SolveDirectReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			logHTTPSAccess(c.Request.Method, "/api/solve/direct", reqID, c.ClientIP(), http.StatusBadRequest, startedAt, "error=bind")
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		normalizedURL, err := validate.URL(c.Request.Context(), req.URL, cfg.ProxyServer)
+		if err != nil {
+			logHTTPSAccess(c.Request.Method, "/api/solve/direct", reqID, c.ClientIP(), http.StatusBadRequest, startedAt, "error=url")
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		res, err := pool.SubmitDirect(c.Request.Context(), normalizedURL, cfg.SolveTimeout)
+		if err != nil {
+			status := http.StatusInternalServerError
+			switch {
+			case errors.Is(err, context.DeadlineExceeded):
+				status = http.StatusGatewayTimeout
+			case errors.Is(err, context.Canceled):
+				status = http.StatusRequestTimeout
+			}
+			logHTTPSAccess(c.Request.Method, "/api/solve/direct", reqID, c.ClientIP(), status, startedAt, "error="+err.Error())
+			c.JSON(status, gin.H{"error": err.Error()})
+			return
+		}
+
+		logHTTPSAccess(c.Request.Method, "/api/solve/direct", reqID, c.ClientIP(), http.StatusOK, startedAt, fmt.Sprintf("solve_ms=%d", res.SolveMS))
+		c.JSON(http.StatusOK, res)
+	})
+
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           r,

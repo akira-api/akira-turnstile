@@ -137,6 +137,24 @@ func (p *Pool) SubmitUAM(parent context.Context, rawURL string, timeout time.Dur
 	return res, err
 }
 
+func (p *Pool) SubmitDirect(parent context.Context, rawURL string, timeout time.Duration) (model.SolveDirectResp, error) {
+	jobCtx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+	job := &solveDirectJob{
+		ID: helpers.NextID("job-direct"), URL: rawURL, Ctx: jobCtx,
+		Reply: make(chan *model.SolveDirectResp, 1), Enqueued: time.Now(),
+	}
+	logger.Debugf("job %s queued: type=direct url=%q timeout=%s", job.ID, rawURL, timeout)
+	w, err := p.acqWorker(jobCtx)
+	if err != nil {
+		return model.SolveDirectResp{}, err
+	}
+	defer p.relWorker(w)
+	logger.Debugf("job %s acquired worker %d after %s", job.ID, w.id, time.Since(job.Enqueued))
+	res, err := w.runSolveDirect(job)
+	return res, err
+}
+
 func (p *Pool) acqWorker(ctx context.Context) (*worker, error) {
 	for {
 		select {

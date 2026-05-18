@@ -86,6 +86,17 @@ type SolveUAMResp struct {
 	SolveMS     int64        `json:"solve_ms"`
 }
 
+/** SolveDirectReq is the direct Turnstile solver request. */
+type SolveDirectReq struct {
+	URL string `json:"url" binding:"required"`
+}
+
+/** SolveDirectResp is the direct Turnstile solver response. */
+type SolveDirectResp struct {
+	Cookies string `json:"cookies"`
+	SolveMS int64  `json:"solve_ms"`
+}
+
 /** CookieInfo holds cookie data. */
 type CookieInfo struct {
 	Name   string `json:"name"`
