@@ -49,6 +49,12 @@ func (w *worker) runSolveDirect(job *solveDirectJob) (model.SolveDirectResp, err
 	}
 
 	solveStart := time.Now()
+	
+	// Clear cookies to ensure fresh start for each job
+	if err := sess.Execute(job.Ctx, "Network.clearBrowserCookies", nil, nil); err != nil {
+		logger.Debugf("[DIRECT] job %s clearing cookies failed: %v", job.ID, err)
+	}
+	
 	logger.Infof("[DIRECT] job %s navigating to %q", job.ID, job.URL)
 	if err := sess.Execute(job.Ctx, "Page.navigate",
 		map[string]any{"url": job.URL}, nil); err != nil {
