@@ -66,6 +66,8 @@ func (w *worker) runSolveDirect(job *solveDirectJob) (model.SolveDirectResp, err
 	lastClickTime := time.Time{}
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
+	cookiesTicker := time.NewTicker(1 * time.Second)
+	defer cookiesTicker.Stop()
 
 	cookies := ""
 
@@ -142,20 +144,30 @@ func (w *worker) runSolveDirect(job *solveDirectJob) (model.SolveDirectResp, err
 			}
 		}
 
-		var storageResult struct {
-			Cookies []map[string]any `json:"cookies"`
+		// Fetch cookies periodically (not on every tick)
+		shouldFetchCookies := checkboxFound
+		select {
+		case <-cookiesTicker.C:
+			shouldFetchCookies = true
+		default:
 		}
-		if err := sess.Execute(job.Ctx, "Storage.getCookies", nil, &storageResult); err == nil {
-			var parts []string
-			for _, c := range storageResult.Cookies {
-				if name, ok := c["name"].(string); ok {
-					if value, ok := c["value"].(string); ok {
-						parts = append(parts, name+"="+value)
+
+		if shouldFetchCookies {
+			var storageResult struct {
+				Cookies []map[string]any `json:"cookies"`
+			}
+			if err := sess.Execute(job.Ctx, "Storage.getCookies", nil, &storageResult); err == nil {
+				var parts []string
+				for _, c := range storageResult.Cookies {
+					if name, ok := c["name"].(string); ok {
+						if value, ok := c["value"].(string); ok {
+							parts = append(parts, name+"="+value)
+						}
 					}
 				}
-			}
-			if len(parts) > 0 {
-				cookies = strings.Join(parts, "; ")
+				if len(parts) > 0 {
+					cookies = strings.Join(parts, "; ")
+				}
 			}
 		}
 
