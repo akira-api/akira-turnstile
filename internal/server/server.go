@@ -29,7 +29,7 @@ func Listen(parent context.Context, cfg config.Config, pool *browser.Pool) error
 	authMiddleware := newAPIKeyAuth(cfg.APIKey)
 
 	/** Health check endpoint. */
-	r.GET("/api/healthz", func(c *gin.Context) {
+	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
