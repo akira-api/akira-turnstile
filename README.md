@@ -1,80 +1,119 @@
-# CF Clearance Scraper
+# akira-turnstile
 
-API for solving Cloudflare Turnstile and UAM challenges.
+> Cloudflare Turnstile solver API, built for the [Akira API](https://github.com/akira-api) ecosystem.
 
-## What it does
+Forked from [siputzx/cf-clearance-scraper](https://github.com/siputzx/cf-clearance-scraper)
+and reworked to meet Akira API's architecture and deployment requirements.
 
-- `POST /api/solve` solves a Turnstile challenge.
-- `POST /api/solve/uam` handles UAM pages.
-- `GET /api/healthz` returns a simple health check.
+> **License** — [MIT](LICENSE)
 
-## Docker setup
+---
 
-1. Copy the sample environment file.
+## Features
 
-   ```bash
-   cp .env.example .env
-   ```
+- Direct Turnstile solving — no relay, no middleman
+- API key authentication on solver endpoints
+- Health check endpoint for uptime monitoring
+- Docker-based runtime with Chromium and Xvfb
+- Typical solve time around 10 seconds under normal conditions
 
-2. Set the values you need in `.env`.
-   - `API_KEY` protects the API endpoints.
-   - `PROXY_SERVER` is optional.
-   - `CLOUDFLARED_TOKEN` is required only if you want the bundled `cloudflared` container to run.
+---
 
-3. Start the stack.
+## Endpoints
 
-   ```bash
-   docker compose up -d --build
-   ```
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/health` | Health check |
+| `POST` | `/api/solve/direct` | Solve a Turnstile challenge |
 
-The solver container runs with Chromium and Xvfb inside Docker. You do not need Go or Chromium installed on the host.
+---
 
-## Authentication
+## Setup
 
-Protected endpoints expect the `apikey` header.
+**1. Copy the environment file.**
 
 ```bash
-curl -H "apikey: your-secret" http://localhost:4557/api/healthz
+cp .env.example .env
 ```
 
-## API usage
+**2. Fill in the required values.**
 
-### Solve Turnstile
+> `API_KEY` — required for protected endpoints  
+> `CLOUDFLARED_TOKEN` — only needed if you use the `cloudflared` tunnel service
+
+**3. Start the stack.**
 
 ```bash
-curl -X POST http://localhost:4557/api/solve \
+docker compose up -d --build
+```
+
+---
+
+## Usage
+
+```bash
+curl -X POST http://localhost:4557/api/solve/direct \
   -H "Content-Type: application/json" \
   -H "apikey: your-secret" \
   -d '{
-    "url": "https://target.example/",
-    "sitekey": "your-turnstile-sitekey"
+    "url": "https://target.example/"
   }'
 ```
 
-### Solve UAM
+---
 
-```bash
-curl -X POST http://localhost:4557/api/solve/uam \
-  -H "Content-Type: application/json" \
-  -H "apikey: your-secret" \
-  -d '{
-    "url": "https://target-protected.example/"
-  }'
+## Without Cloudflare Tunnel
+
+By default, the compose stack runs a `cloudflared` sidecar alongside the solver.
+
+> **Why `cloudflared`?**  
+> NAT VPS — no public IP, no open ports, no fun. `cloudflared` handles the ingress so we do not have to.  
+> If your server has a real public IP, skip the tunnel entirely.
+
+To expose the port directly instead, make two changes in `docker-compose.yml`.
+
+**1. Replace `expose` with `ports` on the `solver` service.**
+
+```yaml
+# tunnel mode (default) — port stays private, cloudflared handles ingress
+expose:
+  - "4557"
+
+# direct port mode — bind straight to the host
+ports:
+  - "4557:4557"
 ```
 
-## Environment variables
+**2. Remove or comment out the `cloudflared` service block.**
 
-| Variable              | Default | Description                               |
-| --------------------- | ------- | ----------------------------------------- |
-| `PORT`                | `4557`  | HTTP server port                          |
-| `PROXY_SERVER`        | none    | Optional SOCKS5 proxy URL                 |
-| `API_KEY`             | none    | API key required by protected endpoints   |
-| `DEBUG`               | `false` | Enable debug logging                      |
-| `ALLOW_NO_SANDBOX`    | `false` | Allow Chrome to run without sandbox       |
-| `XVFB_DISPLAY_BASE`   | `400`   | Base display number for Xvfb              |
-| `POOL_SIZE`           | `1`     | Browser worker count                      |
-| `TABS_PER_BROWSER`    | `1`     | Tabs per browser instance                 |
-| `BROWSER_MAX_AGE_MIN` | `30`    | Browser restart interval in minutes       |
-| `BROWSER_MAX_SOLVES`  | `50`    | Max solves before browser restart         |
-| `SOLVE_TIMEOUT_SEC`   | `60`    | Per-request timeout in seconds            |
-| `CLOUDFLARED_TOKEN`   | none    | Cloudflare Tunnel token for `cloudflared` |
+```yaml
+# cloudflared:
+#   image: cloudflare/cloudflared:latest
+#   container_name: turnstile-cloudflared
+#   restart: unless-stopped
+#   depends_on:
+#     - solver
+#   command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+#   networks:
+#     - akira-net
+```
+
+> You can also drop `CLOUDFLARED_TOKEN` from your `.env` — it will not be referenced.
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `4557` | HTTP server port |
+| `API_KEY` | — | API key for protected endpoints |
+| `DEBUG` | `true` in sample | Enable debug logging |
+| `PROXY_SERVER` | — | Optional proxy URL |
+| `ALLOW_NO_SANDBOX` | `false` | Run Chrome without sandbox (not recommended) |
+| `POOL_SIZE` | `1` | Number of browser workers |
+| `TABS_PER_BROWSER` | `1` | Tabs per browser instance |
+| `BROWSER_MAX_AGE_MIN` | `30` | Browser recycle interval (minutes) |
+| `BROWSER_MAX_SOLVES` | `50` | Max solves before a browser is recycled |
+| `SOLVE_TIMEOUT_SEC` | `60` | Per-request timeout (seconds) |
+| `CLOUDFLARED_TOKEN` | — | Tunnel token for the `cloudflared` service |
