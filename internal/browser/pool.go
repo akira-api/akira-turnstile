@@ -139,17 +139,20 @@ func (p *Pool) relWorker(w *worker) {
 	if shouldReplace && !w.closing {
 		w.draining = true
 	}
+	var oldInst *browserInst
 	if shouldReplace && !w.replacing && !w.closing && w.activeTabs == 0 {
-		old := w.instance
+		oldInst = w.instance
 		w.replacing = true
 		w.draining = true
 		w.instance = nil
 		logger.Debugf("worker %d scheduling browser replacement", w.id)
-		go w.replaceInst(old)
 	}
 	free := !w.closing && !w.draining && w.instance != nil && w.activeTabs+w.advertisedSlots < w.tabCap
 	w.mu.Unlock()
-	if !free || !w.canReturn() {
+	if oldInst != nil {
+		go w.replaceInst(oldInst)
+	}
+	if !free {
 		return
 	}
 	p.addSlots(w, 1)

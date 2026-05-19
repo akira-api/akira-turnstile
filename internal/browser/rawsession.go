@@ -25,13 +25,14 @@ var marshalOpts = jsonv2.JoinOptions(
 )
 
 type rawSession struct {
-	nextID    int64 // Must be first for proper alignment on 32-bit systems
-	conn      *rawConn
-	sessionID target.SessionID
-	targetID  target.ID
-	pending   map[int64]chan *cdproto.Message
-	listenCtx context.Context
-	listenFn  func(ev any)
+	nextID      int64 // Must be first for proper alignment on 32-bit systems
+	conn        *rawConn
+	sessionID   target.SessionID
+	targetID    target.ID
+	pending     map[int64]chan *cdproto.Message
+	listenCtx   context.Context
+	readCancel  context.CancelFunc
+	listenFn    func(ev any)
 }
 
 type rawConn struct {
@@ -229,13 +230,16 @@ func newRawSession(ctx context.Context, port int) (*rawSession, error) {
 		return nil, fmt.Errorf("attachTarget unmarshal (%s): %w", string(rawAttach), err)
 	}
 
+	// Create a cancellable context for the read loop
+	readCtx, readCancel := context.WithCancel(ctx)
 	session := &rawSession{
-		conn:      conn,
-		sessionID: target.SessionID(attachResult.SessionID),
-		targetID:  target.ID(createResult.TargetID),
-		nextID:    100,
-		pending:   make(map[int64]chan *cdproto.Message),
-		listenCtx: ctx,
+		conn:       conn,
+		sessionID:  target.SessionID(attachResult.SessionID),
+		targetID:   target.ID(createResult.TargetID),
+		nextID:     100,
+		pending:    make(map[int64]chan *cdproto.Message),
+		listenCtx:  readCtx,
+		readCancel: readCancel,
 	}
 
 	go session.readLoop()
@@ -244,6 +248,11 @@ func newRawSession(ctx context.Context, port int) (*rawSession, error) {
 
 func (s *rawSession) readLoop() {
 	for {
+		select {
+		case <-s.listenCtx.Done():
+			return
+		default:
+		}
 		msg, err := s.conn.read(s.listenCtx)
 		if err != nil {
 			return
@@ -305,6 +314,10 @@ func (s *rawSession) Execute(ctx context.Context, method string, params, res any
 }
 
 func (s *rawSession) close() {
+	// Cancel the read loop first
+	if s.readCancel != nil {
+		s.readCancel()
+	}
 	// Try to close the target
 	closeCmd := &cdproto.Message{
 		ID:     atomic.AddInt64(&s.nextID, 1),
