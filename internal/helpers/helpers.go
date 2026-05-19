@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -117,28 +115,3 @@ func TruncS(s string, max int) string {
 	return s[:max-3] + "..."
 }
 
-/** DetectMem reads system memory from /proc/meminfo (GiB). */
-func DetectMem() int {
-	data, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 4
-	}
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if !strings.HasPrefix(line, "MemTotal:") {
-			continue
-		}
-		f := strings.Fields(line)
-		if len(f) < 2 {
-			break
-		}
-		kb, err := strconv.Atoi(f[1])
-		if err != nil || kb <= 0 {
-			break
-		}
-		if gb := kb / (1024 * 1024); gb >= 1 {
-			return gb
-		}
-		return 1
-	}
-	return 4
-}

@@ -101,49 +101,10 @@ func (p *Pool) Close() {
 	}
 }
 
-func (p *Pool) Submit(parent context.Context, req model.SolveReq, timeout time.Duration) (model.SolveResult, error) {
-	jobCtx, cancel := context.WithTimeout(parent, timeout)
-	defer cancel()
-	job := &solveJob{
-		ID: helpers.NextID("job-solve"), Req: req, Ctx: jobCtx,
-		Reply: make(chan model.SolveResult, 1), Enqueued: time.Now(),
-	}
-	logger.Debugf("job %s queued: type=turnstile url=%q timeout=%s", job.ID, req.URL, timeout)
-	w, err := p.acqWorker(jobCtx)
-	if err != nil {
-		return model.SolveResult{}, err
-	}
-	defer p.relWorker(w)
-	logger.Debugf("job %s acquired worker %d after %s", job.ID, w.id, time.Since(job.Enqueued))
-	res := w.runSolve(job)
-	return res, res.Err
-}
-
-func (p *Pool) SubmitUAM(parent context.Context, rawURL string, timeout time.Duration) (model.SolveUAMResp, error) {
-	jobCtx, cancel := context.WithTimeout(parent, timeout)
-	defer cancel()
-	job := &solveUAMJob{
-		ID: helpers.NextID("job-uam"), URL: rawURL, Ctx: jobCtx,
-		Reply: make(chan model.SolveUAMResp, 1), Enqueued: time.Now(),
-	}
-	logger.Debugf("job %s queued: type=uam url=%q timeout=%s", job.ID, rawURL, timeout)
-	w, err := p.acqWorker(jobCtx)
-	if err != nil {
-		return model.SolveUAMResp{}, err
-	}
-	defer p.relWorker(w)
-	logger.Debugf("job %s acquired worker %d after %s", job.ID, w.id, time.Since(job.Enqueued))
-	res, err := w.runSolveUAM(job)
-	return res, err
-}
-
 func (p *Pool) SubmitDirect(parent context.Context, rawURL string, timeout time.Duration) (model.SolveDirectResp, error) {
 	jobCtx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
-	job := &solveDirectJob{
-		ID: helpers.NextID("job-direct"), URL: rawURL, Ctx: jobCtx,
-		Reply: make(chan *model.SolveDirectResp, 1), Enqueued: time.Now(),
-	}
+	job := &solveDirectJob{ID: helpers.NextID("job-direct"), URL: rawURL, Ctx: jobCtx, Enqueued: time.Now()}
 	logger.Debugf("job %s queued: type=direct url=%q timeout=%s", job.ID, rawURL, timeout)
 	w, err := p.acqWorker(jobCtx)
 	if err != nil {
