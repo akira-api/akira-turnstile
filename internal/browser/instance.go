@@ -3,6 +3,8 @@ package browser
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +17,7 @@ import (
 
 type browserInst struct {
 	id          int
+	debugPort   int
 	allocCtx    context.Context
 	allocCancel context.CancelFunc
 	rootCtx     context.Context
@@ -38,6 +41,22 @@ func (b *browserInst) close() {
 	b.allocCancel()
 }
 
+func (b *browserInst) alive(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/json/version", b.debugPort), nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+	return nil
+}
+
 func newBrowserInst(parent context.Context, cfg config.Config, display string, id int) (*browserInst, error) {
 	if os.Geteuid() == 0 && !cfg.AllowNoSandbox {
 		return nil, errors.New("refusing to launch browser as root without sandbox; run as non-root or set ALLOW_NO_SANDBOX=true")
@@ -49,7 +68,7 @@ func newBrowserInst(parent context.Context, cfg config.Config, display string, i
 		allocCancel()
 		return nil, err
 	}
-	return &browserInst{id: id, allocCtx: allocCtx, allocCancel: allocCancel, rootCtx: rootCtx, rootCancel: rootCancel, createdAt: time.Now()}, nil
+	return &browserInst{id: id, debugPort: 9222 + id, allocCtx: allocCtx, allocCancel: allocCancel, rootCtx: rootCtx, rootCancel: rootCancel, createdAt: time.Now()}, nil
 }
 
 func browserOpts(display, proxyServer string, allowNoSandbox bool, debugPort int) []chromedp.ExecAllocatorOption {

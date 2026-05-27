@@ -123,7 +123,7 @@ func (p *Pool) acqWorker(ctx context.Context) (*worker, error) {
 			return nil, ctx.Err()
 		case w := <-p.available:
 			w.noteTaken()
-			if w.tryAcq() {
+			if w.tryAcq(ctx) {
 				return w, nil
 			}
 		}
@@ -158,7 +158,45 @@ func (p *Pool) relWorker(w *worker) {
 	p.addSlots(w, 1)
 }
 
-func (w *worker) tryAcq() bool {
+func (w *worker) tryAcq(ctx context.Context) bool {
+	var oldInst *browserInst
+	var healthErr error
+	var needRepair bool
+
+	w.mu.Lock()
+	if w.closing || w.draining || w.replacing || w.instance == nil || w.activeTabs >= w.tabCap {
+		w.mu.Unlock()
+		return false
+	}
+	if w.activeTabs == 0 {
+		oldInst = w.instance
+	}
+	w.mu.Unlock()
+
+	if oldInst != nil {
+		healthCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		healthErr = oldInst.alive(healthCtx)
+		cancel()
+		if healthErr != nil {
+			needRepair = true
+		}
+	}
+
+	if needRepair {
+		w.mu.Lock()
+		if w.closing || w.replacing || w.instance != oldInst || w.activeTabs != 0 {
+			w.mu.Unlock()
+			return false
+		}
+		w.draining = true
+		w.replacing = true
+		w.instance = nil
+		w.mu.Unlock()
+		logger.Debugf("worker %d idle browser health check failed, scheduling replacement: %v", w.id, healthErr)
+		go w.replaceInst(oldInst)
+		return false
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closing || w.draining || w.replacing || w.instance == nil || w.activeTabs >= w.tabCap {
